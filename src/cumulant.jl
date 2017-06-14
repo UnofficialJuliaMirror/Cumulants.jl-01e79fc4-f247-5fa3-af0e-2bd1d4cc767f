@@ -87,7 +87,7 @@ function moment1c{T <: AbstractFloat}(X::Matrix{T}, m::Int, b::Int=2)
   sizetest(n, b)
   nbar = ceil(Int, n/b)
   ret = NullableArray(Array{T, m}, fill(nbar, m)...)
-  for j in indices(m, nbar)
+  @time for j in indices(m, nbar)
     dims = (mod(n,b) == 0 || !(nbar in j))? (fill(b,m)...): usebl(j, n, b, nbar)
     @inbounds ret[j...] = momentblock(X, j, dims, b)
   end
@@ -103,14 +103,17 @@ is a block size. Uses multicore parallel implementation via pmap()
 """
 
 function momentnc{T <: AbstractFloat}(x::Matrix{T}, m::Int, b::Int = 2)
+  println("new call")
   t = size(x, 1)
   f(z::Matrix{T}) = moment1c(z, m, b)
-  #k = max(2, nprocs()-1)
-  k = nprocs()
+  k = max(2, nprocs()-1)
+  # k=nprocs()-1
+  # k = nprocs()
   r = ceil(Int, t/k)
   y = [x[ind2range(i, r, t), :] for i in 1:k]
+  # println(size(y))
   ret = pmap(f, y)
-  #ret = pmap(z::Matrix{T} -> moment1c(z, m, b), y)
+  # ret = pmap(z::Matrix{T} -> moment1c(z, m, b), y)
   (r*sum(ret[1:(end-1)])+(t-(k-1)*r)*ret[end])/t
 end
 
@@ -123,7 +126,7 @@ is a block size. Calls 1 core or multicore moment function.
 """
 
 moment{T <: AbstractFloat}(X::Matrix{T}, m::Int, b::Int=2) =
-  (nprocs()==1)? moment1c(X, m, b): momentnc(X, m, b)
+  (length(workers())==1)? moment1c(X, m, b): momentnc(X, m, b)
 
 # ---- following code is used to caclulate cumulants in SymmetricTensor form----
 """
